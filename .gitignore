@@ -5,6 +5,9 @@ data/*.db-journal
 data/*.db-wal
 data/*.db-shm
 
+# Backend runtime data (dev DB may hold notification secrets)
+backend/data/
+
 # Backend
 backend/bin/*
 !backend/bin/homelab-arm64

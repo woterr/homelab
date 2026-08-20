@@ -29,6 +29,11 @@ log "Installing prerequisites (git)"
 apt-get update -qq
 apt-get install -y -qq git >/dev/null || true
 
+# As root, ssh-agent is usually empty; fall back to the user's GitHub key.
+if [[ $EUID -eq 0 ]] && [[ -f /home/user/.ssh/id_ed25519 ]] && [[ ! -f /root/.ssh/id_ed25519 ]]; then
+  export GIT_SSH_COMMAND="ssh -i /home/user/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+fi
+
 log "Creating '$RUN_USER' user (groups: docker, video)"
 if ! id -u "$RUN_USER" &>/dev/null; then
   useradd -r -s /usr/sbin/nologin "$RUN_USER"
