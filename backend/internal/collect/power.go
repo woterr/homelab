@@ -51,7 +51,9 @@ func (c *PowerCollector) read() PowerSample {
 
 	voltage := c.sysfsVoltageV()
 	if v := runVcgencmd("measure_volts"); v != "" {
-		v = strings.TrimSuffix(strings.TrimSpace(v), "V")
+		v = strings.TrimSpace(v)
+		v = strings.TrimPrefix(v, "volt=")
+		v = strings.TrimSuffix(v, "V")
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
 			voltage = f
 		}
@@ -104,15 +106,18 @@ func (c *PowerCollector) sysfsVoltageV() float64 {
 	}
 	for _, dir := range dirs {
 		name := strings.ToLower(readFileLine(dir + "/name"))
-		if strings.Contains(name, "raspberrypi") || strings.Contains(name, "bcm") {
-			// The Pi's own hwmon reports core voltage unconditionally.
-			if mv := utilParseFloat(readFileLine(dir + "/in0_input")); mv > 0 {
-				return mv / 1000
+		piRail := strings.Contains(name, "raspberrypi") ||
+			strings.Contains(name, "bcm") ||
+			strings.Contains(name, "rpi_volt") ||
+			strings.Contains(name, "rpivid")
+		for _, in := range []string{"in0", "in1", "in2", "in3"} {
+			if !piRail {
+				lbl := strings.ToLower(readFileLine(dir + "/" + in + "_label"))
+				if !strings.Contains(lbl, "core") && !strings.Contains(lbl, "vcore") {
+					continue
+				}
 			}
-		}
-		label := strings.ToLower(readFileLine(dir + "/in0_label"))
-		if strings.Contains(label, "core") || strings.Contains(label, "vcore") {
-			if mv := utilParseFloat(readFileLine(dir + "/in0_input")); mv > 0 {
+			if mv := utilParseFloat(readFileLine(dir + "/" + in + "_input")); mv > 0 {
 				return mv / 1000
 			}
 		}
