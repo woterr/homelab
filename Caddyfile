@@ -7,6 +7,13 @@
 # Paths are absolute (/home/user/homelab) since this file is loaded by the
 # homelab-caddy systemd unit, not by a container.
 
+# The NAS's own Caddy owns the default admin endpoint (127.0.0.1:2019), so
+# homelab's instance uses a dedicated admin port.
+
+{
+	admin 127.0.0.1:2020
+}
+
 :8090 {
 	encode zstd gzip
 
