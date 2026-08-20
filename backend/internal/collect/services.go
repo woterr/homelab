@@ -132,6 +132,10 @@ func (c *ServicesCollector) collectDocker(ctx context.Context, now time.Time) ([
 	var samples []metric.Sample
 	var metas []ServiceMeta
 	var svcs []*store.Service
+
+	// Stats fetches are daemon-side ~1.5s each (two readings), so running
+	// containers are sampled concurrently to stay inside the tick budget.
+	var wg sync.WaitGroup
 	for _, ct := range list {
 		name := ct.Names[0]
 		name = strings.TrimPrefix(name, "/")
@@ -155,17 +159,26 @@ func (c *ServicesCollector) collectDocker(ctx context.Context, now time.Time) ([
 		samples = append(samples, metric.NewL("service.up", map[string]string{"service": name, "kind": "docker"}, now, up))
 
 		if ct.State == "running" {
-			var st dockerStats
-			if err := c.docker.getJSON(ctx, "/containers/"+ct.ID+"/stats?stream=false", &st); err == nil {
-				cpu, mem := dockerCPUMem(&st)
-				svc.CPU, svc.Memory = cpu, mem
-				samples = append(samples,
-					metric.NewL("service.cpu_percent", map[string]string{"service": name, "kind": "docker"}, now, cpu),
-					metric.NewL("service.memory_bytes", map[string]string{"service": name, "kind": "docker"}, now, mem),
-				)
-			}
+			wg.Add(1)
+			go func(ct dockerContainer, svc *store.Service) {
+				defer wg.Done()
+				var st dockerStats
+				if err := c.docker.getJSON(ctx, "/containers/"+ct.ID+"/stats?stream=false", &st); err == nil {
+					svc.CPU, svc.Memory = dockerCPUMem(&st)
+				}
+			}(ct, svc)
 		}
 		svcs = append(svcs, svc)
+	}
+	wg.Wait()
+
+	for _, svc := range svcs {
+		if svc.Status == "running" && (svc.CPU != 0 || svc.Memory != 0) {
+			samples = append(samples,
+				metric.NewL("service.cpu_percent", map[string]string{"service": svc.Name, "kind": "docker"}, now, svc.CPU),
+				metric.NewL("service.memory_bytes", map[string]string{"service": svc.Name, "kind": "docker"}, now, svc.Memory),
+			)
+		}
 	}
 	return samples, metas, svcs
 }
