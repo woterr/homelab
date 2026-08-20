@@ -165,7 +165,7 @@ func (s *StateStore) ListEvents(ctx context.Context, f EventFilter) ([]*events.E
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*events.Event
+	var out = make([]*events.Event, 0)
 	for rows.Next() {
 		var ts int64
 		var etype, sev, src, msg string
@@ -244,7 +244,7 @@ func (s *StateStore) ListDevices(ctx context.Context) ([]*Device, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*Device
+	var out = make([]*Device, 0)
 	for rows.Next() {
 		var d Device
 		var fs, ls int64
@@ -324,7 +324,7 @@ func (s *StateStore) ListServices(ctx context.Context) ([]*Service, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*Service
+	var out = make([]*Service, 0)
 	for rows.Next() {
 		var sv Service
 		var st int64
@@ -407,7 +407,7 @@ func (s *StateStore) ListRules(ctx context.Context) ([]*Rule, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*Rule
+	var out = make([]*Rule, 0)
 	for rows.Next() {
 		var r Rule
 		var en, nt, ca int64

@@ -11,6 +11,7 @@
     "test": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@fontsource/cascadia-code": "^5.3.0",
     "@fontsource/cascadia-mono": "^5.3.0",
     "@fontsource/montserrat": "^5.3.0",
     "d3": "^7.9.0",

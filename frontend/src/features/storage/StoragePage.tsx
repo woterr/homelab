@@ -34,7 +34,7 @@ export function StoragePage() {
   if (loading) {
     return (
       <div className="stack">
-        <PageHead index="05" title="Storage" meta="FILESYSTEMS + BLOCK DEVICES" />
+        <PageHead index="05" title="Storage" meta="MOUNTED PARTITIONS + BLOCK DEVICES" />
         <div className="panel">
           <SkeletonRows rows={5} />
         </div>
@@ -51,7 +51,7 @@ export function StoragePage() {
       <PageHead
         index="05"
         title="Storage"
-        meta="FILESYSTEMS + BLOCK DEVICES"
+        meta="MOUNTED PARTITIONS + BLOCK DEVICES"
         right={
           <span className="k-mono k-tert" style={{ fontSize: 'var(--fs-2xs)' }}>
             {fmtBytes(totalUsed)} / {fmtBytes(totalCap)}
@@ -76,20 +76,33 @@ export function StoragePage() {
       <div className="grid grid--2">
         <div className="panel">
           <div className="panel__head">
-            <h3 className="panel__title">Filesystems</h3>
+            <h3 className="panel__title">Mounted partitions</h3>
+            <span className="k-mono k-tert" style={{ fontSize: 'var(--fs-2xs)' }}>
+              {parts.length} DRIVES · lsblk
+            </span>
           </div>
           <div className="panel__body--flush">
-            {fs.length === 0 ? (
-              <Empty title="No filesystems" hint="Mounts are read from /proc/mounts." />
+            {parts.length === 0 ? (
+              <Empty title="No partitions detected" hint="lsblk is used on the host to enumerate mounted drives." />
             ) : (
-              fs.map((f) => (
-                <div className="storage-fs" key={f.mountpoint}>
+              parts.map((p) => (
+                <div className="storage-fs" key={p.device}>
                   <div className="storage-fs__head">
-                    <span className="storage-fs__mount">{f.mountpoint}</span>
-                    <span className="storage-fs__dev">{f.device} · {f.fs_type}{f.read_only ? ' · ro' : ''}</span>
-                    <span className="k-mono k-tert">{fmtBytes(f.used)} / {fmtBytes(f.total)}</span>
+                    <IconDrive width={14} height={14} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
+                    <span className="storage-fs__mount">{p.mountpoint || p.device}</span>
+                    <span className="storage-fs__dev">
+                      <span className="k-mono">{p.device}</span>
+                      <Badge tone="neutral">{p.fs_type || '—'}</Badge>
+                      {p.read_only && <span className="k-faint" style={{ fontSize: 'var(--fs-2xs)' }}>ro</span>}
+                    </span>
+                    <span className="k-mono k-tert">{fmtBytes(p.size)}</span>
                   </div>
-                  <Meter value={f.used_pct} tone={f.used_pct > 90 ? 'danger' : f.used_pct > 75 ? 'warn' : 'ok'} wave />
+                  <Meter value={p.used_pct} tone={p.used_pct > 90 ? 'danger' : p.used_pct > 75 ? 'warn' : 'ok'} wave />
+                  <div className="storage-fs__sub">
+                    <span>{fmtBytes(p.used)} used</span>
+                    <span>{fmtBytes(p.available)} free</span>
+                    <span>{p.used_pct.toFixed(1)}%</span>
+                  </div>
                 </div>
               ))
             )}
@@ -137,54 +150,6 @@ export function StoragePage() {
               </table>
             )}
           </div>
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel__head">
-          <h3 className="panel__title">Mounted partitions</h3>
-          <span className="k-mono k-tert" style={{ fontSize: 'var(--fs-2xs)' }}>
-            {parts.length} via lsblk
-          </span>
-        </div>
-        <div className="panel__body--flush">
-          {parts.length === 0 ? (
-            <Empty title="No partitions detected" hint="lsblk is used on the host to enumerate mounted drives." />
-          ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Partition</th>
-                  <th>Mount</th>
-                  <th>Type</th>
-                  <th style={{ textAlign: 'right' }}>Size</th>
-                  <th style={{ width: '10rem' }}>Used</th>
-                </tr>
-              </thead>
-              <tbody>
-                {parts.map((p) => (
-                  <tr key={p.device}>
-                    <td className="k-mono" style={{ fontWeight: 600 }}>
-                      {p.device}
-                    </td>
-                    <td className="k-mono">{p.mountpoint}</td>
-                    <td className="k-mono k-tert">
-                      {p.fs_type || '—'}{p.read_only ? ' · ro' : ''}
-                    </td>
-                    <td className="k-mono" style={{ textAlign: 'right' }}>{fmtBytes(p.size)}</td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Meter value={p.used_pct} />
-                        <span className="k-mono" style={{ fontSize: 'var(--fs-xs)', width: '5.5rem', textAlign: 'right' }}>
-                          {fmtBytes(p.used)} / {fmtBytes(p.size)}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
         </div>
       </div>
 

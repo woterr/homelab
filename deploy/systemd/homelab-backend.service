@@ -16,9 +16,6 @@ CapabilityBoundingSet=CAP_NET_RAW
 NoNewPrivileges=true
 Restart=on-failure
 RestartSec=3
-ProtectSystem=strict
-PrivateTmp=true
-ReadWritePaths=/home/user/homelab/data
 
 [Install]
 WantedBy=multi-user.target

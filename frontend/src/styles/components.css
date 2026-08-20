@@ -933,6 +933,7 @@
   border-bottom: 1px solid var(--line-faint);
   align-items: flex-start;
   transition: background var(--transition-fast);
+  font-family: "Cascadia Code", var(--font-mono);
 }
 .event-row:hover {
   background: var(--bg-glass);
@@ -1653,7 +1654,7 @@
   gap: var(--sp-4);
   padding: var(--sp-2) 0;
   border-bottom: 1px solid var(--line-faint);
-  font-family: var(--font-mono);
+  font-family: "Cascadia Code", var(--font-mono);
   font-size: var(--fs-xs);
 }
 .log-row:last-child {
@@ -1994,6 +1995,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.storage-fs__dev .status {
+  margin-left: var(--sp-2);
+}
+.storage-fs__sub {
+  display: flex;
+  gap: var(--sp-4);
+  margin-top: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-tertiary);
 }
 
 /* ---- metrics page ---- */

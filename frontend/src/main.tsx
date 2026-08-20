@@ -13,6 +13,8 @@ import '@fontsource/montserrat/700.css'
 import '@fontsource/cascadia-mono/400.css'
 import '@fontsource/cascadia-mono/500.css'
 import '@fontsource/cascadia-mono/600.css'
+// Cascadia Code is used for the event log terminal rows.
+import '@fontsource/cascadia-code/400.css'
 
 useSettingsStore.getState().init()
 
