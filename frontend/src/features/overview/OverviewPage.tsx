@@ -101,7 +101,7 @@ export function OverviewPage() {
 
   const twin: TwinData = {
     hostname: info.hostname,
-    model: 'bcm2837',
+    model: info.soc || info.cpu_model || 'arm',
     cpuTotal: cpu.Total,
     perCore: cpu.PerCore,
     coreCount: cpu.CoreCount,

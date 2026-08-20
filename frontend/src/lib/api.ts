@@ -45,6 +45,7 @@ export interface SystemInfo {
   kernel: string
   architecture: string
   model: string
+  soc?: string
   cpu_model: string
   cores: number
   uptime_seconds: number
