@@ -1,0 +1,24 @@
+# Runtime data
+data/*.db
+data/*.db-*
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Backend
+backend/bin/*
+!backend/bin/homelab-arm64
+*.exe
+*.test
+
+# Frontend
+frontend/node_modules/
+frontend/.vite/
+# NOTE: frontend/dist and backend/bin/homelab-arm64 are committed so the Pi can
+# serve without a toolchain (git pull -> systemd). Rebuild + commit on release.
+
+# Misc
+.DS_Store
+*.log
+.env
+.env.local

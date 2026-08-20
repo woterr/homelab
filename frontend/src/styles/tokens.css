@@ -1,0 +1,165 @@
+/* ---------------------------------------------------------------------------
+ * Node console — design tokens
+ *
+ * Monochrome command console: cool-gray surfaces, grayscale chrome, one warm
+ * raspberry accent (#ffb4a8). Montserrat for reading, Cascadia Mono for data.
+ * Every visible value must come from these variables.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  /* stage + surfaces (flat dark) */
+  --bg-base: #0a0a0a; /* flat near-black stage */
+  --bg-layer: rgba(255, 255, 255, 0.035); /* panel glass over base */
+  --bg-layer-2: #171717; /* elevated glass (modal/toast) */
+  --bg-panel: #141414; /* opaque surface-container */
+  --bg-panel-2: #1d1d1d; /* surface-container-high */
+  --bg-hover: #262626; /* surface-container-highest */
+  --bg-inset: #0e0e0e; /* surface-container-lowest */
+  --bg-glass: rgba(255, 255, 255, 0.035); /* glass-fill */
+  --bg-active: rgba(255, 180, 168, 0.09);
+
+  /* text — neutral grays, high contrast for readability */
+  --text-primary: #efefef;
+  --text-secondary: #bdbdbd;
+  --text-tertiary: #8a8a8a;
+  --text-faint: #4d4d4d;
+  --text-inverse: #180a05; /* on raspberry */
+
+  /* technical lines */
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.2);
+  --line-cyan: rgba(255, 180, 168, 0.45); /* primary link line */
+  --line-faint: rgba(255, 255, 255, 0.05);
+
+  /* chroma — raspberry is the only brand accent; everything else is gray or semantic */
+  --accent: #ffb4a8;
+  --accent-dim: #f0a093;
+  --accent-soft: rgba(255, 180, 168, 0.09);
+  --accent-glow: rgba(255, 180, 168, 0.3);
+  --cyan: #ffb4a8;
+  --violet: #b6bdea;
+
+  /* semantic status — restrained, not decorative */
+  --ok: #8bd6a3;
+  --ok-soft: rgba(139, 214, 163, 0.12);
+  --warn: #e6b45f;
+  --warn-soft: rgba(230, 180, 95, 0.12);
+  --danger: #e57373;
+  --danger-soft: rgba(229, 115, 115, 0.12);
+  --info: #b6bdea;
+  --info-soft: rgba(182, 189, 234, 0.1);
+  --power: #f0a35a;
+
+  /* presence accents — device/link status */
+  --up: #7dc79a;
+  --up-soft: rgba(125, 199, 154, 0.12);
+  --down: #dd7373;
+  --down-soft: rgba(221, 115, 115, 0.12);
+
+  /* chart palette — gray-led, accent reserved for the primary series */
+  --chart-0: #ffb4a8; /* primary */
+  --chart-1: #a8b0bd; /* cool gray */
+  --chart-2: #e6b45f; /* amber */
+  --chart-3: #d6d6d6; /* light gray */
+  --chart-4: #8b8f98; /* mid gray */
+  --chart-5: #e57373; /* red */
+  --chart-6: #b6bdea; /* lavender */
+  --chart-7: #5a5f68; /* dark gray */
+
+  /* typography */
+  --font-sans: "Montserrat", "Segoe UI", system-ui, -apple-system, Roboto,
+    sans-serif;
+  --font-mono: "Cascadia Mono", ui-monospace, "SF Mono", Menlo, Consolas,
+    monospace;
+
+  --fs-2xs: 0.6875rem; /* 11 — label-caps */
+  --fs-xs: 0.75rem; /* 12 — body-sm */
+  --fs-sm: 0.875rem; /* 14 */
+  --fs-md: 0.9375rem; /* 15 — body */
+  --fs-lg: 1.0625rem; /* 17 */
+  --fs-xl: 1.25rem; /* 20 */
+  --fs-2xl: 1.5rem; /* 24 */
+  --fs-3xl: 1.75rem;
+  --fs-4xl: 2.25rem;
+  --fs-5xl: 2.75rem; /* headline-lg */
+  --fs-display: 2.25rem; /* data-display */
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* spacing — 4pt scale, generous */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.25rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+  --sp-10: 2.5rem;
+  --sp-12: 3rem;
+  --sp-14: 3.5rem;
+  --sp-16: 4rem;
+  --sp-20: 5rem;
+  --sp-gutter: 1.25rem;
+  --sp-edge: 2.5rem; /* margin-edge */
+  --sp-pad: 2rem; /* container padding */
+
+  /* radii — crisp, lightly relieved */
+  --r-xs: 3px;
+  --r-sm: 5px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 14px;
+  --r-full: 999px;
+
+  /* effects */
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 18px 48px rgba(0, 0, 0, 0.5);
+  --shadow-float: 0 10px 32px rgba(0, 0, 0, 0.55);
+  --shadow-node: 0 0 14px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 12px rgba(255, 180, 168, 0.22);
+  --ring: 0 0 0 2px var(--accent), 0 0 0 4px rgba(255, 180, 168, 0.25);
+
+  /* layout */
+  --bar-h: 4rem;
+  --grid-cell: 2.5rem;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 120ms var(--ease-in-out);
+  --transition: 220ms var(--ease-in-out);
+
+  --z-stage: 0;
+  --z-panel: 1;
+  --z-nav: 100;
+  --z-dropdown: 1000;
+  --z-modal: 1100;
+  --z-toast: 1200;
+}
+
+/* Motion budget — "reduced" (from Settings) collapses decorative animation. */
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  animation-duration: 0.001s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001s !important;
+}
+[data-motion="reduced"] .nominal-pill__dot,
+[data-motion="reduced"] .cmd-tick__dot--on {
+  display: none;
+}
+
+/* Respect the OS-level reduced-motion preference on top of the in-app toggle. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+  }
+}

@@ -1,0 +1,215 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+  overflow-x: clip;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* scrollbars — technical, minimal */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: var(--r-full);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--r-xs);
+}
+
+/* ------------------------------------------------------------------ */
+/* workspace — content sits directly on the flat stage                 */
+/* ------------------------------------------------------------------ */
+.workspace {
+  position: relative;
+  z-index: var(--z-panel);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.workspace__main {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 1720px;
+  margin: 0 auto;
+  padding: calc(var(--bar-h) + var(--sp-8)) var(--sp-edge) var(--sp-16);
+}
+
+/* ------------------------------------------------------------------ */
+/* technical micro-type                                               */
+/* ------------------------------------------------------------------ */
+.label-caps,
+.k-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.k-label--accent {
+  color: var(--accent);
+}
+.k-value {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.k-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.k-sec {
+  color: var(--text-secondary);
+}
+.k-tert {
+  color: var(--text-tertiary);
+}
+.k-faint {
+  color: var(--text-faint);
+}
+.k-accent {
+  color: var(--accent);
+}
+.k-ok {
+  color: var(--ok);
+}
+.k-warn {
+  color: var(--warn);
+}
+.k-danger {
+  color: var(--danger);
+}
+.k-info {
+  color: var(--info);
+}
+.k-power {
+  color: var(--power);
+}
+.k-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* inline text utilities */
+.text-primary {
+  color: var(--text-primary);
+}
+.text-secondary {
+  color: var(--text-secondary);
+}
+.text-tertiary {
+  color: var(--text-tertiary);
+}
+
+/* lazy page loader frame */
+.page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* section header — "chapter" heading with index + rule */
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.sec-head__index {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--accent);
+}
+.sec-head__title {
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+.sec-head__rule {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+  position: relative;
+}
+.sec-head__meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+}

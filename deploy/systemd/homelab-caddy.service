@@ -1,0 +1,20 @@
+[Unit]
+Description=homelab web server (Caddy, :8090)
+After=network-online.target homelab-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=caddy
+Group=caddy
+ExecStart=/usr/bin/caddy run --config /opt/homelab/Caddyfile --adapter caddyfile
+ExecReload=/usr/bin/caddy reload --config /opt/homelab/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=3
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
