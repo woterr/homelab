@@ -120,17 +120,18 @@ type dockerStats struct {
 	} `json:"memory_stats"`
 }
 
-func (c *ServicesCollector) collectDocker(ctx context.Context, now time.Time) ([]metric.Sample, []ServiceMeta) {
+func (c *ServicesCollector) collectDocker(ctx context.Context, now time.Time) ([]metric.Sample, []ServiceMeta, []*store.Service) {
 	if c.docker == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	var list []dockerContainer
 	if err := c.docker.getJSON(ctx, "/containers/json?all=1", &list); err != nil {
 		c.log.Warn("docker list failed", "error", err)
-		return nil, nil
+		return nil, nil, nil
 	}
 	var samples []metric.Sample
 	var metas []ServiceMeta
+	var svcs []*store.Service
 	for _, ct := range list {
 		name := ct.Names[0]
 		name = strings.TrimPrefix(name, "/")
@@ -164,9 +165,9 @@ func (c *ServicesCollector) collectDocker(ctx context.Context, now time.Time) ([
 				)
 			}
 		}
-		c.apply(ctx, svc)
+		svcs = append(svcs, svc)
 	}
-	return samples, metas
+	return samples, metas, svcs
 }
 
 func dockerCPUMem(st *dockerStats) (cpu, mem float64) {
@@ -185,13 +186,13 @@ func dockerCPUMem(st *dockerStats) (cpu, mem float64) {
 
 // ---- systemd ----
 
-func (c *ServicesCollector) collectSystemd(ctx context.Context, now time.Time) ([]metric.Sample, []ServiceMeta) {
+func (c *ServicesCollector) collectSystemd(ctx context.Context, now time.Time) ([]metric.Sample, []ServiceMeta, []*store.Service) {
 	if _, err := exec.LookPath("systemctl"); err != nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	out, err := exec.CommandContext(ctx, "systemctl", "--no-pager", "--output=json", "list-units", "--type=service", "--all").Output()
 	if err != nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	var units []struct {
 		Unit        string `json:"unit"`
@@ -200,10 +201,11 @@ func (c *ServicesCollector) collectSystemd(ctx context.Context, now time.Time) (
 		Description string `json:"description"`
 	}
 	if err := json.Unmarshal(out, &units); err != nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	var samples []metric.Sample
 	var metas []ServiceMeta
+	var svcs []*store.Service
 	for _, u := range units {
 		name := strings.TrimSuffix(u.Unit, ".service")
 		id := "systemd." + name
@@ -223,29 +225,36 @@ func (c *ServicesCollector) collectSystemd(ctx context.Context, now time.Time) (
 			Status: status,
 		}
 		metas = append(metas, ServiceMeta{ID: id, Name: name, Kind: "systemd", Status: status})
-		c.apply(ctx, svc)
+		svcs = append(svcs, svc)
 	}
-	return samples, metas
+	return samples, metas, svcs
 }
 
-// apply persists a service snapshot and emits state-transition events.
-func (c *ServicesCollector) apply(ctx context.Context, cur *store.Service) {
+// persist diffs the snapshots against the in-memory map, emits transition
+// events, and batches all upserts into a single transaction.
+func (c *ServicesCollector) persist(ctx context.Context, svcs []*store.Service) {
+	for _, svc := range svcs {
+		c.diffAndEmit(ctx, svc)
+	}
+	if err := c.store.UpsertServices(ctx, svcs); err != nil {
+		c.log.Warn("service persist failed", "error", err)
+	}
+}
+
+// diffAndEmit updates the in-memory snapshot and emits state-transition events.
+// Persistence is handled separately (batched) by persist().
+func (c *ServicesCollector) diffAndEmit(ctx context.Context, cur *store.Service) {
 	c.mu.Lock()
 	prev, existed := c.services[cur.ID]
 	c.services[cur.ID] = cur
 	c.mu.Unlock()
 
 	if !existed {
-		if err := c.store.UpsertService(ctx, cur); err == nil {
-			c.tee.Emit(ctx, events.New(events.TypeServiceStarted, events.SeverityInfo, "services",
-				"Service "+cur.Name+" is now "+cur.Status))
-		}
+		c.tee.Emit(ctx, events.New(events.TypeServiceStarted, events.SeverityInfo, "services",
+			"Service "+cur.Name+" is now "+cur.Status))
 		return
 	}
 	if prev.Status != cur.Status {
-		if err := c.store.UpsertService(ctx, cur); err != nil {
-			return
-		}
 		ev := events.New(events.TypeServiceStopped, events.SeverityWarning, "services",
 			"Service "+cur.Name+" changed: "+prev.Status+" -> "+cur.Status)
 		if cur.Status == "running" || cur.Status == "active" {
@@ -253,19 +262,15 @@ func (c *ServicesCollector) apply(ctx context.Context, cur *store.Service) {
 				"Service "+cur.Name+" is now "+cur.Status)
 		}
 		c.tee.Emit(ctx, ev)
-		return
-	}
-	// Update stats without event noise.
-	if err := c.store.UpsertService(ctx, cur); err != nil {
-		c.log.Warn("service persist failed", "id", cur.ID, "error", err)
 	}
 }
 
 // refreshSync refreshes the discovery list on a slow cadence.
 func (c *ServicesCollector) refreshSync(ctx context.Context) {
 	now := time.Now()
-	_, _ = c.collectDocker(ctx, now)
-	_, _ = c.collectSystemd(ctx, now)
+	_, _, dsvcs := c.collectDocker(ctx, now)
+	_, _, ssvcs := c.collectSystemd(ctx, now)
+	c.persist(ctx, append(dsvcs, ssvcs...))
 }
 
 func (c *ServicesCollector) Collect(ctx context.Context) ([]metric.Sample, error) {
@@ -277,7 +282,8 @@ func (c *ServicesCollector) Collect(ctx context.Context) ([]metric.Sample, error
 	if stale {
 		c.refreshSync(ctx)
 	}
-	samples, _ := c.collectDocker(ctx, now)
+	samples, _, svcs := c.collectDocker(ctx, now)
+	c.persist(ctx, svcs)
 
 	var countRunning, countTotal int
 	c.mu.Lock()

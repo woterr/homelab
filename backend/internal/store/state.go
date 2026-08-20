@@ -300,19 +300,41 @@ type Service struct {
 }
 
 func (s *StateStore) UpsertService(ctx context.Context, svc *Service) error {
-	var st int64
-	if !svc.StartedAt.IsZero() {
-		st = svc.StartedAt.UnixMilli()
+	return s.UpsertServices(ctx, []*Service{svc})
+}
+
+// UpsertServices persists many service snapshots in a single transaction so the
+// periodic 100+ unit refresh doesn't pay an fsync per row (SD-card friendly).
+func (s *StateStore) UpsertServices(ctx context.Context, svcs []*Service) error {
+	if len(svcs) == 0 {
+		return nil
 	}
-	_, err := s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO services(id, name, kind, status, image, started_at, restarts, cpu, memory, last_error)
 		VALUES(?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(id) DO UPDATE SET
 			name=excluded.name, kind=excluded.kind, status=excluded.status,
 			image=excluded.image, started_at=excluded.started_at, restarts=excluded.restarts,
-			cpu=excluded.cpu, memory=excluded.memory, last_error=excluded.last_error`,
-		svc.ID, svc.Name, svc.Kind, svc.Status, svc.Image, st, svc.Restarts, svc.CPU, svc.Memory, svc.LastError)
-	return err
+			cpu=excluded.cpu, memory=excluded.memory, last_error=excluded.last_error`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for _, svc := range svcs {
+		var st int64
+		if !svc.StartedAt.IsZero() {
+			st = svc.StartedAt.UnixMilli()
+		}
+		if _, err := stmt.ExecContext(ctx, svc.ID, svc.Name, svc.Kind, svc.Status, svc.Image, st, svc.Restarts, svc.CPU, svc.Memory, svc.LastError); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (s *StateStore) ListServices(ctx context.Context) ([]*Service, error) {
