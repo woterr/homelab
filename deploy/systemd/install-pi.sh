@@ -3,6 +3,10 @@
 #
 # Run with sudo. Idempotent: safe to re-run after a `git push`.
 #
+# Everything lives in ~/homelab (/home/user/homelab): the repo clone AND the
+# SQLite data dir. A leftover /var/lib/homelab from an earlier layout is
+# migrated into ~/homelab/data and then removed.
+#
 # It deliberately does NOT touch the NAS: Docker, the filestash stack, Samba,
 # and the NAS's own Caddy on :80 are all left as-is. Only the homelab backend
 # and a dedicated homelab Caddy (:8090) are managed here.
@@ -12,11 +16,11 @@
 set -euo pipefail
 
 REPO="git@github.com:woterr/homelab.git"
-DEST="/opt/homelab"
-DATA_DIR="/var/lib/homelab"
-RUN_USER="homelab"
+DEST="/home/user/homelab"
+DATA_DIR="$DEST/data"
+RUN_USER="user"
 SYS_CONF="/etc/homelab.env"
-OLD_DATA="/home/user/homelab/data"
+OLD_DATA="/var/lib/homelab"
 
 log() { printf '\n\033[1;32m==> %s\033[0m\n' "$*"; }
 
@@ -29,31 +33,33 @@ log "Installing prerequisites (git)"
 apt-get update -qq
 apt-get install -y -qq git >/dev/null || true
 
-# As root, ssh-agent is usually empty; fall back to the user's GitHub key.
-if [[ $EUID -eq 0 ]] && [[ -f /home/user/.ssh/id_ed25519 ]] && [[ ! -f /root/.ssh/id_ed25519 ]]; then
-  export GIT_SSH_COMMAND="ssh -i /home/user/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
-fi
-
-log "Creating '$RUN_USER' user (groups: docker, video)"
-if ! id -u "$RUN_USER" &>/dev/null; then
-  useradd -r -s /usr/sbin/nologin "$RUN_USER"
-fi
+log "Ensuring '$RUN_USER' is in the docker + video groups"
 usermod -a -G docker "$RUN_USER" || true
 usermod -a -G video "$RUN_USER" || true
+
+# As root, ssh-agent is usually empty; fall back to the user's GitHub key.
+if [[ -f /home/user/.ssh/id_ed25519 ]] && [[ ! -f /root/.ssh/id_ed25519 ]]; then
+  export GIT_SSH_COMMAND="ssh -i /home/user/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+fi
 
 log "Fetching repo -> $DEST"
 if [[ -d "$DEST/.git" ]]; then
   git -C "$DEST" pull --ff-only
 else
+  if [[ -d "$DEST" ]]; then
+    mv "$DEST" "$DEST.old"
+    log "Moved non-git $DEST aside -> $DEST.old"
+  fi
   git clone "$REPO" "$DEST"
 fi
 
 log "Preparing data dir $DATA_DIR"
 install -d -o "$RUN_USER" -g "$RUN_USER" -m 0755 "$DATA_DIR"
 if [[ -f "$OLD_DATA/homelab.db" ]]; then
-  cp -n "$OLD_DATA"/homelab.db* "$DATA_DIR"/ 2>/dev/null || true
+  cp -f "$OLD_DATA"/homelab.db* "$DATA_DIR"/ 2>/dev/null || true
   chown -R "$RUN_USER:$RUN_USER" "$DATA_DIR"
-  log "Preserved existing metrics from $OLD_DATA"
+  log "Migrated data from old $OLD_DATA layout"
+  rm -rf "$OLD_DATA"
 fi
 
 log "Installing systemd units"

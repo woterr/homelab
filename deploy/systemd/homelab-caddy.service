@@ -5,14 +5,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=caddy
-Group=caddy
-ExecStart=/usr/bin/caddy run --config /opt/homelab/Caddyfile --adapter caddyfile
-ExecReload=/usr/bin/caddy reload --config /opt/homelab/Caddyfile --adapter caddyfile
+User=user
+Group=user
+ExecStart=/usr/bin/caddy run --config /home/user/homelab/Caddyfile --adapter caddyfile
+ExecReload=/usr/bin/caddy reload --config /home/user/homelab/Caddyfile --adapter caddyfile
 Restart=on-failure
 RestartSec=3
 ProtectSystem=full
-ProtectHome=true
 PrivateTmp=true
 NoNewPrivileges=true
 

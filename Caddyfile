@@ -4,13 +4,13 @@
 # on 127.0.0.1:8000. The NAS's own Caddy instance on :80 is left untouched;
 # homelab listens on :8090 (matching the historic dashboard port).
 #
-# Paths are absolute (/opt/homelab) since this file is loaded by the
+# Paths are absolute (/home/user/homelab) since this file is loaded by the
 # homelab-caddy systemd unit, not by a container.
 
 :8090 {
 	encode zstd gzip
 
-	root * /opt/homelab/frontend/dist
+	root * /home/user/homelab/frontend/dist
 
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8000

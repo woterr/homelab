@@ -52,14 +52,15 @@ make build-linux-arm64 # build backend/bin/homelab-arm64 for the Pi
 
 ## Deployment (Raspberry Pi, native systemd)
 
-The Pi runs homelab as two systemd services with no Docker:
+The Pi runs homelab as two systemd services with no Docker, all from `~/homelab`
+(`/home/user/homelab`):
 
-- **`homelab-backend`** — the Go daemon as a dedicated `homelab` user
+- **`homelab-backend`** — the Go daemon running as the `user` account
   (`docker` + `video` groups, `CAP_NET_RAW`), listening on `127.0.0.1:8000`.
-  Metrics land in `/var/lib/homelab` (`homelab.db`, preserved across reinstalls).
+  Metrics live in `~/homelab/data` (`homelab.db`).
 - **`homelab-caddy`** — a *separate* Caddy instance listening on **:8090**
-  (the NAS's own Caddy on :80 is untouched). Serves `frontend/dist` and proxies
-  `/api` + the `/api/v1/ws` WebSocket to the backend.
+  (the NAS's own Caddy on :80 is untouched). Serves `~/homelab/frontend/dist`
+  and proxies `/api` + the `/api/v1/ws` WebSocket to the backend.
 
 Deploy a new release:
 
@@ -70,14 +71,15 @@ cd frontend && npm run build
 git add -A && git commit -m "release: ..." && git push
 
 # 2. On the Pi (idempotent; pulls the repo and reloads services)
-sudo bash /opt/homelab/deploy/systemd/install-pi.sh
+sudo bash ~/homelab/deploy/systemd/install-pi.sh
 ```
 
 The install script:
 
-1. clones/pulls the repo to `/opt/homelab` (uses the Pi's GitHub key)
-2. creates the `homelab` user (groups `docker`, `video`)
-3. prepares `/var/lib/homelab` and preserves an existing `homelab.db`
+1. clones/pulls the repo to `~/homelab` (uses the Pi's GitHub key; a non-git
+   `~/homelab` from an old Docker layout is moved aside to `~/homelab.old`)
+2. ensures the `user` account is in the `docker` and `video` groups
+3. prepares `~/homelab/data` (migrates a leftover `/var/lib/homelab` if present)
 4. installs the two systemd units and enables them
 5. seeds `/etc/homelab.env` on first run (notification defaults)
 

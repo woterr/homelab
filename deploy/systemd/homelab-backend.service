@@ -5,22 +5,20 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=homelab
-Group=homelab
+User=user
+Group=user
 SupplementaryGroups=docker video
-WorkingDirectory=/opt/homelab
-ExecStart=/opt/homelab/backend/bin/homelab-arm64 -data-dir /var/lib/homelab -listen 127.0.0.1:8000
+WorkingDirectory=/home/user/homelab
+ExecStart=/home/user/homelab/backend/bin/homelab-arm64 -data-dir /home/user/homelab/data -listen 127.0.0.1:8000
 EnvironmentFile=-/etc/homelab.env
 AmbientCapabilities=CAP_NET_RAW
 CapabilityBoundingSet=CAP_NET_RAW
 NoNewPrivileges=true
 Restart=on-failure
 RestartSec=3
-StateDirectory=homelab
 ProtectSystem=strict
-ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/var/lib/homelab
+ReadWritePaths=/home/user/homelab/data
 
 [Install]
 WantedBy=multi-user.target
