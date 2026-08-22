@@ -1,0 +1,1 @@
+import{j as p}from"./index-DebRQOH3.js";function b({variant:s="default",size:f="md",icon:n,children:u,className:o="",...i}){const t=["btn"];return s!=="default"&&t.push(`btn--${s}`),f==="sm"&&t.push("btn--sm"),n&&!u&&t.push("btn--icon"),o&&t.push(o),p.jsxs("button",{className:t.join(" "),...i,children:[n,u]})}export{b as B};

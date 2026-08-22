@@ -100,16 +100,20 @@ func (n *Ntfy) Name() string { return "ntfy" }
 func (n *Ntfy) Configured() bool { return n.cfg.Server != "" && n.cfg.Topic != "" }
 
 func (n *Ntfy) Send(ctx context.Context, m Message) error {
-	body, err := json.Marshal(m)
+	// Plain-text publish with metadata in HTTP headers (the documented curl
+	// style): -H "Title: ..." -H "Priority: ..." -H "Tags: ..." -d "message".
+	url := fmt.Sprintf("%s/%s", strings.TrimSuffix(n.cfg.Server, "/"), n.cfg.Topic)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(m.Message))
 	if err != nil {
 		return err
 	}
-	url := fmt.Sprintf("%s/%s", n.cfg.Server, n.cfg.Topic)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return err
+	req.Header.Set("Title", m.Title)
+	req.Header.Set("Priority", ntfyPriority(m.Severity))
+	tags := m.Tags
+	if len(tags) == 0 {
+		tags = []string{ntfyTag(m.Severity)}
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Tags", strings.Join(tags, ","))
 	resp, err := n.hc.Do(req)
 	if err != nil {
 		return err
@@ -119,6 +123,30 @@ func (n *Ntfy) Send(ctx context.Context, m Message) error {
 		return fmt.Errorf("ntfy: unexpected status %d", resp.StatusCode)
 	}
 	return nil
+}
+
+// ntfyPriority maps severity to the ntfy priority header (3=default, 4=high,
+// 5=urgent).
+func ntfyPriority(sev string) string {
+	switch sev {
+	case "error", "critical":
+		return "urgent"
+	case "warning":
+		return "high"
+	default:
+		return "default"
+	}
+}
+
+func ntfyTag(sev string) string {
+	switch sev {
+	case "error", "critical":
+		return "rotating_light"
+	case "warning":
+		return "warning"
+	default:
+		return "information_source"
+	}
 }
 
 // ---- Discord provider ----

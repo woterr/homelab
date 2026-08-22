@@ -1525,25 +1525,6 @@
   font-size: 16px;
   line-height: 1;
 }
-.glass-card__pin {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-xs, 4px);
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
-}
-.glass-card__pin:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--bg-glass);
-}
 
 .stat-display {
   display: flex;

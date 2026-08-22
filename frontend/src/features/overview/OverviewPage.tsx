@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useSystemStore } from '../../state/useSystemStore'
 import { useNetworkStore } from '../../state/useNetworkStore'
 import { useServicesStore } from '../../state/useServicesStore'
@@ -7,7 +6,6 @@ import { useEventsStore } from '../../state/useEventsStore'
 import { useLive } from '../../lib/useLive'
 import { usePoll } from '../../lib/usePoll'
 import { useSeriesHistoryMulti } from '../../lib/useSeriesHistory'
-import { useTelemetryStore } from '../../state/useTelemetryStore'
 import { api, type Filesystem, type NetworkInterface } from '../../lib/api'
 import { Button } from '../../components/ui/Button'
 import { SkeletonRows, Empty } from '../../components/ui/Feedback'
@@ -16,7 +14,7 @@ import { PiSchematic, type TwinData } from '../../components/system/PiSchematic'
 import { ReadinessPanel } from '../../components/system/ReadinessPanel'
 import { fmtBytes, fmtBytesRate, fmtPct, fmtSpeedMbps, fmtTemp, fmtUptime, fmtRelative, severityTone } from '../../lib/format'
 import { seriesColor } from '../../lib/series'
-import { IconCpu, IconMemory, IconThermo, IconWifi, IconBolt, IconArrowUp, IconArrowDown, IconRefresh, IconPlus } from '../../components/ui/icons'
+import { IconCpu, IconMemory, IconThermo, IconWifi, IconBolt, IconArrowUp, IconArrowDown, IconRefresh } from '../../components/ui/icons'
 
 function throttledFlags(maskHex?: string): string[] {
   if (!maskHex) return []
@@ -47,13 +45,6 @@ export function OverviewPage() {
   const [storage, setStorage] = useState<{ filesystems: Filesystem[] } | null>(null)
   const [iface, setIface] = useState<NetworkInterface | null>(null)
   const [refreshing, setRefreshing] = useState(false)
-  const navigate = useNavigate()
-  const addMetric = useTelemetryStore((s) => s.add)
-
-  const pinToTelemetry = (base: string) => {
-    addMetric(base)
-    navigate('/metrics')
-  }
 
   const refreshAll = async () => {
     setRefreshing(true)
@@ -207,9 +198,6 @@ export function OverviewPage() {
             <div className="glass-card__title">
               <IconThermo width={16} height={16} />
               Temp-core
-              <button className="glass-card__pin" title="Add to Telemetry" onClick={() => pinToTelemetry('temperature')}>
-                <IconPlus width={12} height={12} />
-              </button>
             </div>
             <div className="stat-display">
               <span className="stat-display__value">{temp ? temp.temp_c.toFixed(1) : '—'}</span>
@@ -233,9 +221,6 @@ export function OverviewPage() {
             <div className="glass-card__title">
               <IconMemory width={16} height={16} />
               Memory
-              <button className="glass-card__pin" title="Add to Telemetry" onClick={() => pinToTelemetry('memory.used_percent')}>
-                <IconPlus width={12} height={12} />
-              </button>
             </div>
             <div className="stat-display">
               <span className="stat-display__value">{fmtPct(memory.used_pct, 0)}</span>
@@ -296,9 +281,6 @@ export function OverviewPage() {
             <div className="glass-card__title">
               <IconCpu width={16} height={16} />
               Processor
-              <button className="glass-card__pin" title="Add to Telemetry" onClick={() => pinToTelemetry('cpu.utilization')}>
-                <IconPlus width={12} height={12} />
-              </button>
             </div>
             <div className="stat-display">
               <span className="stat-display__value">{fmtPct(cpu.Total, 0)}</span>
@@ -341,9 +323,6 @@ export function OverviewPage() {
             <div className="glass-card__title">
               <IconWifi width={16} height={16} />
               Network
-              <button className="glass-card__pin" title="Add to Telemetry" onClick={() => pinToTelemetry('network.primary_tx_bps')}>
-                <IconPlus width={12} height={12} />
-              </button>
             </div>
             <div className="stat-display">
               <span className="stat-display__value">{fmtBytesRate(rx + tx)}</span>

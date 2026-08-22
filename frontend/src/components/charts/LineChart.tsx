@@ -70,6 +70,7 @@ export function LineChart({
   const [ref, { width }] = useMeasure()
   const [hover, setHover] = useState<{ x: number; y: number; cx: number; cy: number } | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  const rectRef = useRef<DOMRect | null>(null)
   const h = height
 
   const data = useMemo(() => {
@@ -167,6 +168,20 @@ export function LineChart({
     })
   }, [nearest, series])
 
+  // Tooltip pinned to the hovered data point in screen space (fixed, so it is
+  // not clipped by card overflow), instead of floating at the cursor.
+  const tipPos = useMemo(() => {
+    if (!hover || !nearest) return null
+    const rect = rectRef.current
+    if (!rect) return null
+    const tipW = 200
+    const sx = rect.left + nearest.x
+    const sy = rect.top + nearest.y
+    const left = sx + 12 + tipW > window.innerWidth ? Math.max(8, sx - tipW - 12) : sx + 12
+    const top = Math.min(Math.max(8, sy - 16), window.innerHeight - 90)
+    return { left, top }
+  }, [hover, nearest])
+
   return (
     <div ref={ref} style={{ width: '100%', height: h, position: 'relative' }}>
       {width > 0 && (
@@ -176,6 +191,7 @@ export function LineChart({
           height={h}
           onMouseMove={(e) => {
             const rect = svgRef.current!.getBoundingClientRect()
+            rectRef.current = rect
             setHover({ x: e.clientX - rect.left, y: e.clientY - rect.top, cx: e.clientX, cy: e.clientY })
           }}
           onMouseLeave={() => setHover(null)}
@@ -353,15 +369,13 @@ export function LineChart({
         </svg>
       )}
 
-      {/* tooltip anchored to the nearest data point (moves with the graph) */}
-      {hover && nearest && tooltipVals && (
+      {/* tooltip pinned to the nearest data point in screen space */}
+      {hover && nearest && tooltipVals && tipPos && (
         <div
           className="tooltip"
           style={{
-            position: 'absolute',
-            left: Math.max(6, Math.min(nearest.x + 12, (width || 0) - 210)),
-            top: Math.max(6, Math.min(nearest.y - 22, (h || 0) - 90)),
-            zIndex: 40,
+            left: tipPos.left,
+            top: tipPos.top,
           }}
         >
           <div className="tooltip__title">{fmtTime(new Date(nearest.t))}</div>
@@ -394,6 +408,7 @@ function fmtTick(v: number): string {
 export function Sparkline({ points, color = 'var(--accent)', height = 36, unit }: { points: { ts: number; value: number }[]; color?: string; height?: number; unit?: string }) {
   const [ref, { width }] = useMeasure()
   const [hover, setHover] = useState<{ x: number; cx: number; cy: number } | null>(null)
+  const rectRef = useRef<DOMRect | null>(null)
   const h = height
 
   const x = useMemo(
@@ -421,6 +436,18 @@ export function Sparkline({ points, color = 'var(--accent)', height = 36, unit }
     return best >= 0 ? { i: best, x: x(points[best].ts), y: y(points[best].value), v: points[best].value } : null
   }, [hover, points, x, y])
 
+  const tipPos = useMemo(() => {
+    if (!hover || !nearest) return null
+    const rect = rectRef.current
+    if (!rect) return null
+    const tipW = 160
+    const sx = rect.left + nearest.x
+    const sy = rect.top + nearest.y
+    const left = sx + 10 + tipW > window.innerWidth ? Math.max(8, sx - tipW - 10) : sx + 10
+    const top = Math.min(Math.max(8, sy - 30), window.innerHeight - 70)
+    return { left, top }
+  }, [hover, nearest])
+
   if (points.length === 0 || width === 0) {
     return <div ref={ref} style={{ height: h }} />
   }
@@ -442,10 +469,11 @@ export function Sparkline({ points, color = 'var(--accent)', height = 36, unit }
         height={h}
         onMouseMove={(e) => {
           const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
+          rectRef.current = rect
           setHover({ x: e.clientX - rect.left, cx: e.clientX, cy: e.clientY })
         }}
         onMouseLeave={() => setHover(null)}
-        style={{ display: 'block' }}
+        style={{ display: 'block', cursor: 'crosshair' }}
       >
         <defs>
           <linearGradient id={`spark-${color.replace(/\W/g, '')}`} x1="0" y1="0" x2="0" y2="1">
@@ -459,14 +487,12 @@ export function Sparkline({ points, color = 'var(--accent)', height = 36, unit }
           <line x1={nearest.x} x2={nearest.x} y1={0} y2={h} stroke="var(--line-strong)" strokeDasharray="2 3" />
         )}
       </svg>
-      {hover && nearest && (
+      {hover && nearest && tipPos && (
         <div
           className="tooltip"
           style={{
-            position: 'absolute',
-            left: Math.max(6, Math.min(nearest.x + 10, (width || 0) - 190)),
-            top: Math.max(6, Math.min(nearest.y - 20, (h || 0) - 70)),
-            zIndex: 40,
+            left: tipPos.left,
+            top: tipPos.top,
           }}
         >
           <div className="tooltip__title">{fmtTime(new Date(points[nearest.i].ts))}</div>
