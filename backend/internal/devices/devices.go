@@ -194,12 +194,19 @@ func subnetHosts(ipn *net.IPNet) ([]net.IP, error) {
 }
 
 // observe reconciles discovered observations with known devices, persisting
-// changes and emitting join/leave events.
+// changes and emitting join/leave events. DB writes happen outside the lock so
+// the devices API (Snapshot) never blocks on SQLite contention.
 func (m *Manager) observe(ctx context.Context, list []seen) {
 	now := time.Now()
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
+	type act struct {
+		d       *store.Device
+		ev      *events.Event
+		persist bool
+	}
+	var acts []act
+
+	m.mu.Lock()
 	seenIPs := map[string]string{} // ip -> mac
 	for _, s := range list {
 		seenIPs[s.ip] = s.mac
@@ -221,10 +228,10 @@ func (m *Manager) observe(ctx context.Context, list []seen) {
 			}
 			m.devices[s.mac] = d
 			m.lastSeen[s.mac] = now
-			m.persistLocked(ctx, d)
 			online[s.mac] = true
-			m.emitLocked(ctx, events.New(events.TypeDeviceJoined, events.SeverityInfo, "discovery",
-				"New device detected: "+s.ip), d)
+			acts = append(acts, act{d: d, persist: true,
+				ev: events.New(events.TypeDeviceJoined, events.SeverityInfo, "discovery",
+					"New device detected: "+s.ip)})
 			continue
 		}
 		wasOnline := d.Online
@@ -238,11 +245,13 @@ func (m *Manager) observe(ctx context.Context, list []seen) {
 		}
 		d.Metadata["interface"] = s.iface
 		m.lastSeen[s.mac] = now
-		m.persistLocked(ctx, d)
 		online[s.mac] = true
 		if !wasOnline {
-			m.emitLocked(ctx, events.New(events.TypeDeviceJoined, events.SeverityInfo, "discovery",
-				"Device online: "+s.ip), d)
+			acts = append(acts, act{d: d, persist: true,
+				ev: events.New(events.TypeDeviceJoined, events.SeverityInfo, "discovery",
+					"Device online: "+s.ip)})
+		} else {
+			acts = append(acts, act{d: d, persist: true})
 		}
 	}
 
@@ -258,22 +267,28 @@ func (m *Manager) observe(ctx context.Context, list []seen) {
 		}
 		if d.Online && now.Sub(last) > leaveGrace {
 			d.Online = false
-			m.persistLocked(ctx, d)
-			m.emitLocked(ctx, events.New(events.TypeDeviceLeft, events.SeverityInfo, "discovery",
-				"Device offline: "+d.IP), d)
+			acts = append(acts, act{d: d, persist: true,
+				ev: events.New(events.TypeDeviceLeft, events.SeverityInfo, "discovery",
+					"Device offline: "+d.IP)})
+		}
+	}
+	m.mu.Unlock()
+
+	for _, a := range acts {
+		if a.persist {
+			m.persist(ctx, a.d)
+		}
+		if a.ev != nil {
+			a.ev.Data = map[string]any{"mac": a.d.MAC, "ip": a.d.IP, "hostname": a.d.Hostname, "vendor": a.d.Vendor}
+			m.tee.Emit(ctx, a.ev)
 		}
 	}
 }
 
-func (m *Manager) persistLocked(ctx context.Context, d *store.Device) {
+func (m *Manager) persist(ctx context.Context, d *store.Device) {
 	if err := m.store.UpsertDevice(ctx, d); err != nil {
 		m.log.Warn("device persist failed", "mac", d.MAC, "error", err)
 	}
-}
-
-func (m *Manager) emitLocked(ctx context.Context, ev *events.Event, d *store.Device) {
-	ev.Data = map[string]any{"mac": d.MAC, "ip": d.IP, "hostname": d.Hostname, "vendor": d.Vendor}
-	m.tee.Emit(ctx, ev)
 }
 
 func (m *Manager) inferType(mac, ip, hostname string) string {

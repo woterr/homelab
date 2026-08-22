@@ -29,6 +29,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 			s.writeErr(w, http.StatusBadRequest, "metric and operator are required")
 			return
 		}
+		rule.Enabled = true
 		if err := s.state.UpsertRule(r.Context(), &rule); err != nil {
 			s.writeErr(w, http.StatusInternalServerError, err.Error())
 			return

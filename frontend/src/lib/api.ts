@@ -243,6 +243,7 @@ export interface Rule {
   threshold: number
   duration_s: number
   notify: boolean
+  channels?: string[]
   message?: string
   created_at: string
 }

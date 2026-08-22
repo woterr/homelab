@@ -158,6 +158,11 @@ func (e *Engine) notify(ctx context.Context, r *store.Rule, v float64, recovered
 		if !p.Configured() {
 			continue
 		}
+		// A rule may target specific channels ("discord", "ntfy", ...); when it
+		// lists none, notify every configured provider.
+		if len(r.Channels) > 0 && !contains(r.Channels, p.Name()) {
+			continue
+		}
 		if err := p.Send(ctx, m); err != nil {
 			e.log.Warn("notification send failed", "provider", p.Name(), "error", err)
 			continue
@@ -177,3 +182,12 @@ func ruleMessage(r *store.Rule, v float64) string {
 }
 
 func trimNum(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
+
+func contains(hay []string, needle string) bool {
+	for _, h := range hay {
+		if h == needle {
+			return true
+		}
+	}
+	return false
+}

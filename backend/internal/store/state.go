@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS rules (
     threshold   REAL NOT NULL,
     duration_s  INTEGER NOT NULL DEFAULT 0,
     notify      INTEGER NOT NULL DEFAULT 1,
+    channels    TEXT NOT NULL DEFAULT '[]',
     message     TEXT,
     created_at  INTEGER NOT NULL
 );
@@ -84,7 +85,35 @@ func OpenStateStore(ctx context.Context, path string) (*StateStore, error) {
 		db.Close()
 		return nil, fmt.Errorf("state schema: %w", err)
 	}
+	if err := migrateRulesChannels(ctx, db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("state schema migration: %w", err)
+	}
 	return &StateStore{db: db}, nil
+}
+
+// migrateRulesChannels adds the channels column to rules on databases created
+// before per-rule notification targeting was added.
+func migrateRulesChannels(ctx context.Context, db *sql.DB) error {
+	rows, err := db.QueryContext(ctx, `PRAGMA table_info(rules)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notNull, pk int
+		var dflt any
+		if err := rows.Scan(&cid, &name, &ctype, &notNull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == "channels" {
+			return nil
+		}
+	}
+	_, err = db.ExecContext(ctx, `ALTER TABLE rules ADD COLUMN channels TEXT NOT NULL DEFAULT '[]'`)
+	return err
 }
 
 // Close releases the underlying connection pool.
@@ -391,6 +420,7 @@ type Rule struct {
 	Threshold float64   `json:"threshold"`
 	DurationS int       `json:"duration_s"`
 	Notify    bool      `json:"notify"`
+	Channels  []string  `json:"channels,omitempty"` // notify targets; empty = all configured
 	Message   string    `json:"message,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -410,20 +440,26 @@ func (s *StateStore) UpsertRule(ctx context.Context, r *Rule) error {
 	if r.Notify {
 		nt = 1
 	}
+	ch := "[]"
+	if len(r.Channels) > 0 {
+		if b, err := json.Marshal(r.Channels); err == nil {
+			ch = string(b)
+		}
+	}
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO rules(id, name, enabled, metric, operator, threshold, duration_s, notify, message, created_at)
-		VALUES(?,?,?,?,?,?,?,?,?,?)
+		INSERT INTO rules(id, name, enabled, metric, operator, threshold, duration_s, notify, channels, message, created_at)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(id) DO UPDATE SET
 			name=excluded.name, enabled=excluded.enabled, metric=excluded.metric,
 			operator=excluded.operator, threshold=excluded.threshold,
-			duration_s=excluded.duration_s, notify=excluded.notify, message=excluded.message`,
-		r.ID, r.Name, en, r.Metric, r.Operator, r.Threshold, r.DurationS, nt, r.Message, r.CreatedAt.UnixMilli())
+			duration_s=excluded.duration_s, notify=excluded.notify, channels=excluded.channels, message=excluded.message`,
+		r.ID, r.Name, en, r.Metric, r.Operator, r.Threshold, r.DurationS, nt, ch, r.Message, r.CreatedAt.UnixMilli())
 	return err
 }
 
 func (s *StateStore) ListRules(ctx context.Context) ([]*Rule, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, enabled, metric, operator, threshold, duration_s, notify, COALESCE(message,''), created_at
+		SELECT id, name, enabled, metric, operator, threshold, duration_s, notify, COALESCE(channels,'[]'), COALESCE(message,''), created_at
 		FROM rules ORDER BY created_at`)
 	if err != nil {
 		return nil, err
@@ -433,11 +469,15 @@ func (s *StateStore) ListRules(ctx context.Context) ([]*Rule, error) {
 	for rows.Next() {
 		var r Rule
 		var en, nt, ca int64
-		if err := rows.Scan(&r.ID, &r.Name, &en, &r.Metric, &r.Operator, &r.Threshold, &r.DurationS, &nt, &r.Message, &ca); err != nil {
+		var ch string
+		if err := rows.Scan(&r.ID, &r.Name, &en, &r.Metric, &r.Operator, &r.Threshold, &r.DurationS, &nt, &ch, &r.Message, &ca); err != nil {
 			return nil, err
 		}
 		r.Enabled = en == 1
 		r.Notify = nt == 1
+		if ch != "" && ch != "[]" {
+			_ = json.Unmarshal([]byte(ch), &r.Channels)
+		}
 		r.CreatedAt = time.UnixMilli(ca)
 		out = append(out, &r)
 	}

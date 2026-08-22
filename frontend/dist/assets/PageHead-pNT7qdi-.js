@@ -1,0 +1,1 @@
+import{j as e}from"./index-DAmFkFWg.js";function l({index:s,title:a,meta:c,right:d}){return e.jsxs("div",{className:"sec-head",children:[e.jsx("span",{className:"sec-head__index",children:s}),e.jsx("h1",{className:"sec-head__title",children:a}),e.jsx("span",{className:"sec-head__rule"}),e.jsx("span",{className:"sec-head__meta",children:c}),d]})}export{l as P};

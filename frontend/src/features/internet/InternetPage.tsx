@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNetworkStore } from '../../state/useNetworkStore'
 import { usePoll } from '../../lib/usePoll'
 import { Badge } from '../../components/ui/Badge'
@@ -18,15 +18,35 @@ interface SpeedResult {
   error: string | null
 }
 
+interface LiveProbe {
+  ms: number
+  loss: number
+  downloadMbps: number | null
+  uploadMbps: number | null
+  speedTestedAt: string | null
+}
+
 // Real WAN probe: the backend measures outbound latency to public endpoints;
 // the fetch itself is local and instant, so we trust the server's numbers.
-async function probeLatency(): Promise<{ ms: number; loss: number }> {
+async function probeLatency(): Promise<LiveProbe> {
   try {
     const res = await fetch('/api/v1/internet', { cache: 'no-store', signal: AbortSignal.timeout(7000) })
-    const data = (await res.json()) as { latency_ms?: number; loss?: number; download_mbps?: number; upload_mbps?: number; speed_tested_at?: string }
-    return { ms: Math.round(data.latency_ms ?? 0), loss: data.loss ?? 1 }
+    const data = (await res.json()) as {
+      latency_ms?: number
+      loss?: number
+      download_mbps?: number
+      upload_mbps?: number
+      speed_tested_at?: string
+    }
+    return {
+      ms: Math.round(data.latency_ms ?? 0),
+      loss: data.loss ?? 1,
+      downloadMbps: data.download_mbps ?? null,
+      uploadMbps: data.upload_mbps ?? null,
+      speedTestedAt: data.speed_tested_at ?? null,
+    }
   } catch {
-    return { ms: 0, loss: 1 }
+    return { ms: 0, loss: 1, downloadMbps: null, uploadMbps: null, speedTestedAt: null }
   }
 }
 
@@ -173,16 +193,25 @@ export function InternetPage() {
   const [latHist, setLatHist] = useState<{ ts: number; ms: number }[]>([])
   const [speed, setSpeed] = useState<SpeedResult>({ downloadMbps: null, uploadMbps: null, testedAt: null, running: false, error: null })
 
-  // real latency probe
+  // real latency probe + persistent speed: seed the cached result and run the
+  // speed test once on load (or refresh) if none has been measured, then keep
+  // the cached value until the user presses "Run speed test" again.
+  const autoRan = useRef(false)
   useEffect(() => {
     let alive = true
     const run = async () => {
-      const { ms, loss: l } = await probeLatency()
+      const p = await probeLatency()
       if (!alive) return
-      setLatency(ms)
-      setLoss(l)
+      setLatency(p.ms)
+      setLoss(p.loss)
       setProbedAt(new Date())
-      setLatHist((h) => [...h.slice(-59), { ts: Date.now(), ms }])
+      setLatHist((h) => [...h.slice(-59), { ts: Date.now(), ms: p.ms }])
+      if (p.speedTestedAt) {
+        setSpeed({ downloadMbps: p.downloadMbps, uploadMbps: p.uploadMbps, testedAt: p.speedTestedAt, running: false, error: null })
+      } else if (!autoRan.current) {
+        autoRan.current = true
+        void startSpeedTest()
+      }
     }
     void run()
     const iv = setInterval(() => void run(), 30_000)
@@ -190,6 +219,7 @@ export function InternetPage() {
       alive = false
       clearInterval(iv)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const startSpeedTest = async () => {

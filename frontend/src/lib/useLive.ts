@@ -36,7 +36,6 @@ export function useLive(series: string[] = []) {
       clearInterval(poll)
       off()
       client.destroy()
-      setConnected(false)
     }
   }, [applyLive, pushEvent, setConnected])
 }

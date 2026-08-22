@@ -4,14 +4,15 @@ import { useMetricsStore } from '../../state/useMetricsStore'
 import { usePoll } from '../../lib/usePoll'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
-import { Field, Input, Select, Switch } from '../../components/ui/Inputs'
+import { Field, Input, Switch } from '../../components/ui/Inputs'
+import { Dropdown } from '../../components/ui/Dropdown'
 import { Modal } from '../../components/ui/Modal'
 import { Empty } from '../../components/ui/Feedback'
 import { PageHead } from '../../components/ui/PageHead'
 import { IconPlus, IconTrash, IconAlert } from '../../components/ui/icons'
 import { fmtDateTime, fmtRelative } from '../../lib/format'
 import { useToastStore } from '../../state/useToastStore'
-import type { Rule } from '../../lib/api'
+import { api, type Rule } from '../../lib/api'
 
 const OPERATORS = [
   { value: 'gt', label: '> above', glyph: '>' },
@@ -31,6 +32,7 @@ interface Draft {
   threshold: string
   duration_s: string
   notify: boolean
+  channels: string[]
   message: string
 }
 
@@ -41,6 +43,7 @@ const EMPTY: Draft = {
   threshold: '80',
   duration_s: '60',
   notify: true,
+  channels: [],
   message: '',
 }
 
@@ -59,17 +62,30 @@ export function RulesPage() {
 
   usePoll(() => Promise.all([refresh(), refreshSeries()]).then(() => undefined), 30_000)
 
+  const [channelOptions, setChannelOptions] = useState<{ value: string; label: string }[]>([])
+  usePoll(() => api.notifyProviders().then((ps) => setChannelOptions(ps.filter((p) => p.configured).map((p) => ({ value: p.name, label: p.name })))).catch(() => undefined), 30_000)
+
+  // A small curated set of the most useful metrics so thresholds are easy to
+  // pick; each resolves to the first live series with that base name.
   const metricOptions = useMemo(() => {
-    const seen = new Set<string>()
-    const out: { value: string; label: string }[] = []
-    for (const s of series) {
-      const name = typeof s?.name === 'string' ? s.name : ''
-      if (!name) continue
-      const base = name.split('{')[0]
-      if (!seen.has(base)) {
-        seen.add(base)
-        out.push({ value: name, label: name })
-      }
+    const PREF: { base: string; label: string }[] = [
+      { base: 'cpu.utilization', label: 'CPU utilization' },
+      { base: 'memory.used_percent', label: 'Memory used' },
+      { base: 'temperature', label: 'Temperature' },
+      { base: 'cpu.load.1', label: 'Load (1m)' },
+      { base: 'cpu.load.5', label: 'Load (5m)' },
+      { base: 'network.primary_rx_bps', label: 'Network RX' },
+      { base: 'network.primary_tx_bps', label: 'Network TX' },
+      { base: 'disk.busy_percent', label: 'Disk busy' },
+      { base: 'filesystem.used_percent', label: 'Storage used' },
+      { base: 'services.running', label: 'Services running' },
+      { base: 'power.voltage_v', label: 'Power voltage' },
+      { base: 'system.uptime_seconds', label: 'Uptime' },
+    ]
+    const out: { value: string; label: string; group?: string }[] = []
+    for (const p of PREF) {
+      const hit = series.find((s) => typeof s?.name === 'string' && s.name.split('{')[0] === p.base)
+      if (hit) out.push({ value: hit.name, label: p.label, group: 'Common' })
     }
     return out
   }, [series])
@@ -94,6 +110,7 @@ export function RulesPage() {
         threshold,
         duration_s,
         notify: draft.notify,
+        channels: draft.channels,
         message: draft.message.trim() || undefined,
       })
       setOpen(false)
@@ -192,27 +209,24 @@ export function RulesPage() {
           <div className="rule-builder__row">
             <span className="rule-builder__tag rule-builder__tag--when">WHEN</span>
             <Field label="Metric">
-              <Select value={draft.metric} onChange={(e) => setDraft({ ...draft, metric: e.target.value })}>
-                <option value="">Select a metric…</option>
-                {metricOptions.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </Select>
+              <Dropdown
+                value={draft.metric}
+                onChange={(v) => setDraft({ ...draft, metric: v as string })}
+                options={metricOptions}
+                placeholder="Select a metric…"
+                empty="No metric seen yet"
+              />
             </Field>
           </div>
           <div className="rule-builder__row">
             <span className="rule-builder__tag">THEN</span>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-3)', width: '100%' }}>
               <Field label="Operator">
-                <Select value={draft.operator} onChange={(e) => setDraft({ ...draft, operator: e.target.value })}>
-                  {OPERATORS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
+                <Dropdown
+                  value={draft.operator}
+                  onChange={(v) => setDraft({ ...draft, operator: v as string })}
+                  options={OPERATORS.map((o) => ({ value: o.value, label: o.label }))}
+                />
               </Field>
               <Field label="Threshold">
                 <Input
@@ -243,6 +257,23 @@ export function RulesPage() {
             </span>
             <Switch checked={draft.notify} onChange={(v) => setDraft({ ...draft, notify: v })} label="Send notification when it fires" />
           </div>
+          {draft.notify && (
+            <div className="rule-builder__row">
+              <span className="rule-builder__tag" style={{ visibility: 'hidden' }}>
+                ·
+              </span>
+              <Field label="Notify via" hint="Leave empty to use every configured channel.">
+                <Dropdown
+                  multiple
+                  value={draft.channels}
+                  onChange={(v) => setDraft({ ...draft, channels: v as string[] })}
+                  options={channelOptions}
+                  placeholder="All configured channels"
+                  empty="No channels configured yet"
+                />
+              </Field>
+            </div>
+          )}
           <div className="rule-builder__row">
             <span className="rule-builder__tag" style={{ visibility: 'hidden' }}>
               ·

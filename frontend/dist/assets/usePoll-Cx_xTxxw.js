@@ -1,1 +1,0 @@
-import{r as u}from"./index-BGvh-H9E.js";function i(t,e,a=[]){const r=u.useRef(t);r.current=t,u.useEffect(()=>{let c=!1,o;const s=async()=>{try{await r.current()}catch{}c||(o=setTimeout(s,e))};return s(),()=>{c=!0,clearTimeout(o)}},[e,...a])}export{i as u};
