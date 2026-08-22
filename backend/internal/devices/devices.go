@@ -223,7 +223,7 @@ func (m *Manager) observe(ctx context.Context, list []seen) {
 				LastSeen:   now,
 				Online:     true,
 				Vendor:     OUI.Lookup(s.mac),
-				DeviceType: m.inferType(s.mac, s.ip, ""),
+				DeviceType: m.inferType(m.gateway, s.mac, s.ip, ""),
 				Metadata:   map[string]string{"interface": s.iface},
 			}
 			m.devices[s.mac] = d
@@ -291,10 +291,7 @@ func (m *Manager) persist(ctx context.Context, d *store.Device) {
 	}
 }
 
-func (m *Manager) inferType(mac, ip, hostname string) string {
-	m.mu.Lock()
-	gw := m.gateway
-	m.mu.Unlock()
+func (m *Manager) inferType(gw, mac, ip, hostname string) string {
 	if gw != "" && ip == gw {
 		return "router"
 	}
