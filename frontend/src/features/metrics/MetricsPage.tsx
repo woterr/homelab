@@ -9,7 +9,7 @@ import { PageHead } from '../../components/ui/PageHead'
 import { LineChart } from '../../components/charts/LineChart'
 import { groupSeries, variantLabel, seriesColor, inferKind, rangeStep, type SeriesGroup } from '../../lib/series'
 import { fmtNumber } from '../../lib/format'
-import { useToastStore } from '../../state/useToastStore'
+import { MAX_SELECTED, useTelemetryStore } from '../../state/useTelemetryStore'
 
 const WINDOWS = [
   { label: '1H', ms: 3_600_000 },
@@ -19,8 +19,6 @@ const WINDOWS = [
   { label: '7D', ms: 7 * 24 * 3_600_000 },
   { label: '30D', ms: 30 * 24 * 3_600_000 },
 ] as const
-
-const MAX_SELECTED = 2
 
 function unitFor(base: string): string {
   if (/(temp|temperature|thermal)/.test(base)) return '°C'
@@ -107,27 +105,15 @@ function MetricChart({
 export function MetricsPage() {
   const series = useMetricsStore((s) => s.series)
   const refreshSeries = useMetricsStore((s) => s.refreshSeries)
-  const [selected, setSelected] = useState<string[]>([])
+  const selected = useTelemetryStore((s) => s.selected)
+  const toggle = useTelemetryStore((s) => s.toggle)
   const [windowIdx, setWindowIdx] = useState(0)
-  const push = useToastStore((s) => s.push)
 
   usePoll(() => refreshSeries(), 60_000)
 
   const groups = useMemo(() => groupSeries(series), [series])
   const win = WINDOWS[windowIdx]
   const res = rangeStep(win.ms)
-
-  const toggle = (base: string) => {
-    setSelected((prev) => {
-      const has = prev.includes(base)
-      if (has) return prev.filter((b) => b !== base)
-      if (prev.length >= MAX_SELECTED) {
-        push({ kind: 'warn', title: `Max ${MAX_SELECTED} metrics`, message: 'Deselect one before adding another series.' })
-        return prev
-      }
-      return [...prev, base]
-    })
-  }
 
   const slot0 = groups.find((g) => g.base === selected[0]) ?? null
   const slot1 = groups.find((g) => g.base === selected[1]) ?? null

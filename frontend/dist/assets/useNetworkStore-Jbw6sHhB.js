@@ -1,1 +1,0 @@
-import{c as l,a as r}from"./index-DPo4NWAC.js";const i=l(e=>({topology:null,devices:[],loading:!1,error:null,refresh:async()=>{e({loading:!0});try{const[o,a]=await Promise.all([r.topology(),r.devices()]);e({topology:o,devices:a,loading:!1,error:null})}catch(o){e({loading:!1,error:o instanceof Error?o.message:"failed"})}}}));export{i as u};

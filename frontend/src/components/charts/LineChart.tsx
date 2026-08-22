@@ -142,9 +142,10 @@ export function LineChart({
         best = i
       }
     }
-    if (best < 0) return null
-    return { t: s0.points[best].ts, x: x(s0.points[best].ts), y: hover.y }
-  }, [hover, x, series])
+    const p = best >= 0 ? s0.points[best] : null
+    if (!p) return null
+    return { t: p.ts, val: p.value, x: x(p.ts), y: y(p.value) }
+  }, [hover, x, series, y])
 
   const areaGradId = `area-${series.map((s) => s.key).join('-')}`
 
@@ -341,7 +342,7 @@ export function LineChart({
               />
               <circle
                 cx={nearest.x}
-                cy={y(series[0].points[series[0].points.findIndex((p) => p.ts === nearest.t)]?.value ?? 0)}
+                cy={nearest.y}
                 r={4}
                 fill={series[0].color}
                 stroke="var(--bg-panel)"
@@ -352,13 +353,15 @@ export function LineChart({
         </svg>
       )}
 
-      {/* technical tooltip — anchored to the cursor (fixed viewport coords) */}
+      {/* tooltip anchored to the nearest data point (moves with the graph) */}
       {hover && nearest && tooltipVals && (
         <div
           className="tooltip"
           style={{
-            left: Math.max(8, Math.min(hover.cx + 14, window.innerWidth - 250)),
-            top: Math.max(8, Math.min(hover.cy - 46, window.innerHeight - 140)),
+            position: 'absolute',
+            left: Math.max(6, Math.min(nearest.x + 12, (width || 0) - 210)),
+            top: Math.max(6, Math.min(nearest.y - 22, (h || 0) - 90)),
+            zIndex: 40,
           }}
         >
           <div className="tooltip__title">{fmtTime(new Date(nearest.t))}</div>
@@ -415,8 +418,8 @@ export function Sparkline({ points, color = 'var(--accent)', height = 36, unit }
         best = i
       }
     }
-    return best >= 0 ? { i: best, x: x(points[best].ts), v: points[best].value } : null
-  }, [hover, points, x])
+    return best >= 0 ? { i: best, x: x(points[best].ts), y: y(points[best].value), v: points[best].value } : null
+  }, [hover, points, x, y])
 
   if (points.length === 0 || width === 0) {
     return <div ref={ref} style={{ height: h }} />
@@ -460,8 +463,10 @@ export function Sparkline({ points, color = 'var(--accent)', height = 36, unit }
         <div
           className="tooltip"
           style={{
-            left: Math.max(8, Math.min(hover.cx + 12, window.innerWidth - 200)),
-            top: Math.max(8, Math.min(hover.cy - 30, window.innerHeight - 80)),
+            position: 'absolute',
+            left: Math.max(6, Math.min(nearest.x + 10, (width || 0) - 190)),
+            top: Math.max(6, Math.min(nearest.y - 20, (h || 0) - 70)),
+            zIndex: 40,
           }}
         >
           <div className="tooltip__title">{fmtTime(new Date(points[nearest.i].ts))}</div>
