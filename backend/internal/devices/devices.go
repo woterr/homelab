@@ -274,15 +274,61 @@ func (m *Manager) observe(ctx context.Context, list []seen) {
 	}
 	m.mu.Unlock()
 
+	gw := m.gatewayAddr()
 	for _, a := range acts {
+		d := a.d
+		// Best-effort reverse DNS + type refinement the first time we see a
+		// device (or while it still lacks a name). Local client MACs that are
+		// randomized won't resolve — they remain "client"/unknown.
+		if d.Hostname == "" || d.DeviceType == "" || d.DeviceType == "unknown" {
+			if d.Hostname == "" {
+				d.Hostname = m.resolveHost(ctx, d.IP)
+			}
+			if d.DeviceType == "" || d.DeviceType == "unknown" {
+				d.DeviceType = m.inferType(gw, d.MAC, d.IP, d.Hostname)
+			}
+		}
 		if a.persist {
-			m.persist(ctx, a.d)
+			m.persist(ctx, d)
 		}
 		if a.ev != nil {
-			a.ev.Data = map[string]any{"mac": a.d.MAC, "ip": a.d.IP, "hostname": a.d.Hostname, "vendor": a.d.Vendor}
+			a.ev.Data = map[string]any{"mac": d.MAC, "ip": d.IP, "hostname": d.Hostname, "vendor": d.Vendor}
 			m.tee.Emit(ctx, a.ev)
 		}
 	}
+}
+
+func (m *Manager) gatewayAddr() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.gateway
+}
+
+func (m *Manager) resolveHost(ctx context.Context, ip string) string {
+	if ip == "" {
+		return ""
+	}
+	ctx2, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+	defer cancel()
+	names, err := net.DefaultResolver.LookupAddr(ctx2, ip)
+	if err != nil || len(names) == 0 {
+		return ""
+	}
+	for _, n := range names {
+		n = strings.TrimSuffix(n, ".")
+		if n == "" {
+			continue
+		}
+		host := n
+		if idx := strings.IndexByte(n, '.'); idx > 0 {
+			host = n[:idx]
+		}
+		if net.ParseIP(host) != nil {
+			continue // skip "<ip>.domain" style records
+		}
+		return host
+	}
+	return ""
 }
 
 func (m *Manager) persist(ctx context.Context, d *store.Device) {
@@ -304,6 +350,15 @@ func (m *Manager) inferType(gw, mac, ip, hostname string) string {
 		return "mobile"
 	}
 	prefix := strings.ToUpper(strings.ReplaceAll(mac, ":", ""))[:6]
+	// Locally-administered MACs (2nd nibble in {2,6,A,E}) are randomized by
+	// phone/OS privacy; a device with no vendor info is almost always a client.
+	localAdmin := false
+	if len(prefix) >= 2 {
+		c := prefix[:2]
+		if c[1] == '2' || c[1] == '6' || c[1] == 'A' || c[1] == 'E' {
+			localAdmin = true
+		}
+	}
 	switch {
 	case OUI.Lookup(mac) == "Apple":
 		return "mobile"
@@ -313,10 +368,12 @@ func (m *Manager) inferType(gw, mac, ip, hostname string) string {
 		return "mobile"
 	case OUI.Lookup(mac) == "Raspberry Pi":
 		return "server"
-	case OUI.Lookup(mac) == "TP-Link" || OUI.Lookup(mac) == "Xiaomi":
+	case OUI.Lookup(mac) == "TP-Link" || OUI.Lookup(mac) == "Xiaomi" || OUI.Lookup(mac) == "Huawei":
 		return "router"
 	case OUI.Lookup(mac) == "Intel":
 		return "laptop"
+	case localAdmin:
+		return "client"
 	}
 	_ = prefix
 	return "unknown"

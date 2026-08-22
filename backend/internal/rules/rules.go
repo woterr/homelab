@@ -151,7 +151,10 @@ func (e *Engine) notify(ctx context.Context, r *store.Rule, v float64, recovered
 	if recovered {
 		title = "Node: " + r.Name + " recovered"
 	}
-	msg := ruleMessage(r, v)
+	msg := r.Message
+	if msg == "" {
+		msg = ruleMessage(r, v)
+	}
 	m := notify.Message{Title: title, Message: msg, Severity: "warning"}
 	sent := 0
 	for _, p := range e.notif.All() {

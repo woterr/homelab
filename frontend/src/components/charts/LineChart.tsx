@@ -149,10 +149,20 @@ export function LineChart({
   const areaGradId = `area-${series.map((s) => s.key).join('-')}`
 
   const tooltipVals = useMemo(() => {
-    if (!nearest) return null
+    if (!nearest || series.length === 0) return null
     return series.map((s) => {
-      const idx = s.points.findIndex((p) => p.ts === nearest.t)
-      return idx >= 0 ? { label: s.label, value: s.points[idx].value, color: s.color } : null
+      // Match each series to its own nearest point (series may share a time
+      // axis but not identical timestamps after downsampling).
+      let best = -1
+      let bestD = Infinity
+      for (let i = 0; i < s.points.length; i++) {
+        const d = Math.abs(s.points[i].ts - nearest.t)
+        if (d < bestD) {
+          bestD = d
+          best = i
+        }
+      }
+      return best >= 0 ? { label: s.label, value: s.points[best].value, color: s.color } : null
     })
   }, [nearest, series])
 
@@ -378,8 +388,9 @@ function fmtTick(v: number): string {
   return v.toFixed(2)
 }
 
-export function Sparkline({ points, color = 'var(--accent)', height = 36 }: { points: { ts: number; value: number }[]; color?: string; height?: number }) {
+export function Sparkline({ points, color = 'var(--accent)', height = 36, unit }: { points: { ts: number; value: number }[]; color?: string; height?: number; unit?: string }) {
   const [ref, { width }] = useMeasure()
+  const [hover, setHover] = useState<{ x: number; cx: number; cy: number } | null>(null)
   const h = height
 
   const x = useMemo(
@@ -391,6 +402,21 @@ export function Sparkline({ points, color = 'var(--accent)', height = 36 }: { po
     const pad = Math.max((hi - lo) * 0.15, 1e-9)
     return scaleLinear().domain([lo - pad, hi + pad]).range([h, 2])
   }, [points, h])
+
+  const nearest = useMemo(() => {
+    if (!hover || points.length === 0) return null
+    const t = x.invert(hover.x).getTime()
+    let best = -1
+    let bestD = Infinity
+    for (let i = 0; i < points.length; i++) {
+      const d = Math.abs(points[i].ts - t)
+      if (d < bestD) {
+        bestD = d
+        best = i
+      }
+    }
+    return best >= 0 ? { i: best, x: x(points[best].ts), v: points[best].value } : null
+  }, [hover, points, x])
 
   if (points.length === 0 || width === 0) {
     return <div ref={ref} style={{ height: h }} />
@@ -407,8 +433,17 @@ export function Sparkline({ points, color = 'var(--accent)', height = 36 }: { po
     .curve(curveMonotoneX)
 
   return (
-    <div ref={ref} style={{ width: '100%', height: h }}>
-      <svg width={width} height={h}>
+    <div ref={ref} style={{ width: '100%', height: h, position: 'relative' }}>
+      <svg
+        width={width}
+        height={h}
+        onMouseMove={(e) => {
+          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
+          setHover({ x: e.clientX - rect.left, cx: e.clientX, cy: e.clientY })
+        }}
+        onMouseLeave={() => setHover(null)}
+        style={{ display: 'block' }}
+      >
         <defs>
           <linearGradient id={`spark-${color.replace(/\W/g, '')}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity="0.22" />
@@ -417,7 +452,29 @@ export function Sparkline({ points, color = 'var(--accent)', height = 36 }: { po
         </defs>
         <path d={a(points) ?? undefined} fill={`url(#spark-${color.replace(/\W/g, '')})`} />
         <path d={l(points) ?? undefined} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
+        {nearest && (
+          <line x1={nearest.x} x2={nearest.x} y1={0} y2={h} stroke="var(--line-strong)" strokeDasharray="2 3" />
+        )}
       </svg>
+      {hover && nearest && (
+        <div
+          className="tooltip"
+          style={{
+            left: Math.max(8, Math.min(hover.cx + 12, window.innerWidth - 200)),
+            top: Math.max(8, Math.min(hover.cy - 30, window.innerHeight - 80)),
+          }}
+        >
+          <div className="tooltip__title">{fmtTime(new Date(points[nearest.i].ts))}</div>
+          <div className="tooltip__row">
+            <span style={{ width: 8, height: 3, background: color, display: 'inline-block' }} />
+            <span>value</span>
+            <b>
+              {fmtTick(nearest.v)}
+              {unit && <span className="k-tert"> {unit}</span>}
+            </b>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

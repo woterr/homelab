@@ -213,7 +213,7 @@ export function OverviewPage() {
             </div>
             <div className="stack" style={{ marginTop: 'var(--sp-3)', gap: 'var(--sp-2)' }}>
               <span className="k-label">TREND · 15M</span>
-              <Sparkline points={tempHist} color="var(--warn)" height={40} />
+              <Sparkline points={tempHist} color="var(--warn)" height={40} unit="°C" />
             </div>
           </div>
 

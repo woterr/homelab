@@ -28,7 +28,7 @@ function Clock() {
 export function CommandBar() {
   const connected = useConnectionStore((s) => s.connected)
   const system = useSystemStore((s) => s.system)
-  const hostname = system?.info.hostname?.toUpperCase() || 'NODE'
+  const hostname = (system?.info.hostname ?? '').toUpperCase()
 
   return (
     <header className="cmdbar">
